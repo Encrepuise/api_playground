@@ -12,19 +12,16 @@ connection.connect((err) => {
   console.log('Connected to MySQL database!');
 
   const sql = `
-    CREATE TABLE users (
-      id INT(11) NOT NULL AUTO_INCREMENT,
-      name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL,
-      password VARCHAR(255) NOT NULL,
-      is_verified BOOLEAN NOT NULL DEFAULT false;
-      verification_token VARCHAR(255) NULL DEFAULT null;
-      birth_date DATE,
-      gender ENUM('male', 'female', 'other'),
-      mobile_number VARCHAR(20),
-      profile_picture VARCHAR(255),
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id)
+    CREATE TABLE items (
+        itemId INT PRIMARY KEY AUTO_INCREMENT,
+        itemName VARCHAR(50) NOT NULL,
+        itemDescription VARCHAR(255) NOT NULL,
+        itemPrice DECIMAL(10,2) NOT NULL,
+        itemQuantity INT NOT NULL,
+        itemImage VARCHAR(255) NOT NULL,
+        itemCategory VARCHAR(50) NOT NULL,
+        itemSeller INT NOT NULL,
+        FOREIGN KEY (itemSeller) REFERENCES users(id)
     )
   `;
 
