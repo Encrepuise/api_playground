@@ -15,7 +15,7 @@ const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const profilePictureUpload = multer({ dest: 'uploads/profilePictures/' });
 
 // Bcrypt
 const bcrypt = require ('bcrypt');
@@ -138,23 +138,22 @@ app.get('/protected', async (req, res) => {
 
 
 // Update Profile
-app.post('/updateprofile', upload.single('profile_picture'), async (req, res) => {
+app.post('/updateprofile', profilePictureUpload.single('profile_picture'), async (req, res) => {
   try {
+    if (!req.cookies || !req.cookies.token) {
+      res.status(401).send('No token found');
+      return;
+    }
     const token = req.cookies.token;
-    if (!token) {
-      return res.status(401).send('No token found');
-    }
-    let decoded;
-    try {
-      decoded = jwt.verify(token, secret);
-    } catch (err) {
-      return res.status(401).send('Invalid token');
-    }
-    const sql = 'SELECT * FROM users WHERE email = ?';
+    const decoded = jwt.verify(token, secret);
+    const sql = `
+      SELECT * FROM users WHERE email = ?
+    `;
     const values = [decoded.email];
-    const [rows] = await connection.promise().query(sql, values);
+    const [rows, fields] = await connection.promise().query(sql, values);
     if (rows.length === 0) {
-      return res.status(401).send('User not found');
+      res.status(401).send('Invalid token');
+      return;
     }
     const user = rows[0];
 

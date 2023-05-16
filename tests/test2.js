@@ -9,14 +9,19 @@ chai.use(chaiHttp);
 
 describe('Update Profile', () => {
     it('should update user profile', done => {
-      chai.request('http://localhost:3000')
+        chai.request('http://localhost:3000')
         .post('/login')
         .send({
           email: 'alperkopuz@outlook.com',
           password: '123456Alper'
         })
         .end((err, res) => {
-          const token = res.body.token;
+          expect(res).to.have.status(200);
+          expect(res.text).to.equal('Login successful!');
+  
+          // Get the JWT token from the cookie
+          const cookie = res.headers['set-cookie'][0];
+          const token = cookie.split(';')[0].split('=')[1];
   
           chai.request('http://localhost:3000')
             .post('/updateprofile')
