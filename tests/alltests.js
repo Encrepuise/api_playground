@@ -39,11 +39,38 @@ describe('Register', function () {
       .end((err, res) => {
         console.log(`${name}, ${email}, ${password}`);
         expect(res).to.have.status(200);
-        expect(res.text).to.equal('New user registered!');
+        expect(res.body).to.have.property('message').that.equals('New user registered!');
+        expect(res.body).to.have.property('verificationToken').that.is.a('string');
         done();
       });
   }); 
 });
+
+
+describe('Verified Registration', () => {
+    it('should register a new user and send a verification email', async () => {
+      const name = faker.name.findName();
+      const email = faker.internet.email();
+      const password = faker.internet.password();
+  
+      const res = await chai.request('http://localhost:3000')
+        .post('/register')
+        .send({ name, email, password });
+  
+      console.log(`${name}, ${email}, ${password}`);  
+      expect(res).to.have.status(200);
+      expect(res.body).to.have.property('message').that.equals('New user registered!');
+      expect(res.body).to.have.property('verificationToken').that.is.a('string');
+  
+      const verificationLink = `http://localhost:3000/verify/${res.body.verificationToken}`;
+      const verifyRes = await chai.request('http://localhost:3000')
+          .get(`/verify/${res.body.verificationToken}`);
+  
+      expect(verifyRes).to.have.status(200);
+      expect(verifyRes.text).to.equal('Your email address has been verified. You can now log in to your account.');
+    });
+  });
+
 
 describe('Login', function () {  
   it('should log in a user with valid credentials', done => {
@@ -78,56 +105,56 @@ describe('Login', function () {
 
 
 describe('Protected Route', () => {
-  it('should return 200 if a valid token is provided', done => {
-    chai.request('http://localhost:3000')
-      .post('/login')
-      .send({
-        email: 'alperkopuz@outlook.com',
-        password: '123456Alper'
-      })
-      .end((err, res) => {
-        expect(res).to.have.status(200);
-        expect(res.text).to.equal('Login successful!');
-
-        // Get the JWT token from the cookie
-        const cookie = res.headers['set-cookie'][0];
-        const token = cookie.split(';')[0].split('=')[1];
-
-        // Test the protected route with the token
-        chai.request('http://localhost:3000')
-          .get('/protected')
-          .set('Cookie', `token=${token}`)
-          .end((err, res) => {
-            expect(res).to.have.status(200);
-            expect(res.text).to.equal('Welcome, Alper Kopuz!');
-            done();
-          });
-      });
+    it('should return 200 if a valid token is provided', done => {
+      chai.request('http://localhost:3000')
+        .post('/login')
+        .send({
+          email: 'alperkopuz@outlook.com',
+          password: '123456Alper'
+        })
+        .end((err, res) => {
+          expect(res).to.have.status(200);
+          expect(res.text).to.equal('Login successful!');
+  
+          // Get the JWT token from the cookie
+          const cookie = res.headers['set-cookie'][0];
+          const token = cookie.split(';')[0].split('=')[1];
+  
+          // Test the protected route with the token
+          chai.request('http://localhost:3000')
+            .get('/protected')
+            .set('Cookie', `token=${token}`)
+            .end((err, res) => {
+              expect(res).to.have.status(200);
+              expect(res.text).to.equal('Welcome, Alper Kopuz!');
+              done();
+            });
+        });
+    });
+  
+  
+    it('should return 401 if no token is provided', done => {
+      chai.request('http://localhost:3000')
+        .get('/protected')
+        .end((err, res) => {
+          chai.expect(res).to.have.status(401);
+          chai.expect(res.text).to.equal('No token found');
+          done();
+        });
+    });
+  
+    it('should return 401 if an invalid token is provided', done => {
+      const invalidToken = jwt.sign({ email: 'test@example.com' }, 'invalid_secret');
+      chai.request('http://localhost:3000')
+        .get('/protected')
+        .set('Cookie', `token=${invalidToken}`)
+        .end((err, res) => {
+          chai.expect(res).to.have.status(401);
+          chai.expect(res.text).to.equal('Invalid token');
+          done();
+        });
+    });
   });
-
-
-  it('should return 401 if no token is provided', done => {
-    chai.request('http://localhost:3000')
-      .get('/protected')
-      .end((err, res) => {
-        chai.expect(res).to.have.status(401);
-        chai.expect(res.text).to.equal('No token found');
-        done();
-      });
-  });
-
-  it('should return 401 if an invalid token is provided', done => {
-    const invalidToken = jwt.sign({ email: 'test@example.com' }, 'invalid_secret');
-    chai.request('http://localhost:3000')
-      .get('/protected')
-      .set('Cookie', `token=${invalidToken}`)
-      .end((err, res) => {
-        chai.expect(res).to.have.status(401);
-        chai.expect(res.text).to.equal('Invalid token');
-        done();
-      });
-  });
-});
 
 describe('Update Profile', () => {
     it('should update user profile', done => {

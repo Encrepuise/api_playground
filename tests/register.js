@@ -1,6 +1,5 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
-const jwt = require('jsonwebtoken');
 const faker = require('faker');
 
 const { expect } = chai;
@@ -39,7 +38,8 @@ describe('Register', function () {
       .end((err, res) => {
         console.log(`${name}, ${email}, ${password}`);
         expect(res).to.have.status(200);
-        expect(res.text).to.equal('New user registered!');
+        expect(res.body).to.have.property('message').that.equals('New user registered!');
+        expect(res.body).to.have.property('verificationToken').that.is.a('string');
         done();
       });
   }); 

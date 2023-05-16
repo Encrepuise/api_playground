@@ -17,6 +17,8 @@ connection.connect((err) => {
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255) NOT NULL,
       password VARCHAR(255) NOT NULL,
+      is_verified BOOLEAN NOT NULL DEFAULT false;
+      verification_token VARCHAR(255) NULL DEFAULT null;
       birth_date DATE,
       gender ENUM('male', 'female', 'other'),
       mobile_number VARCHAR(20),
