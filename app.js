@@ -124,6 +124,8 @@ app.get("/", async function(req, res, next) {
 
 // User registration endpoint
 app.post('/register', async (req, res) => {
+  // Obtain client's IP address
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const { name, email, password } = req.body;
 
   try {
@@ -139,10 +141,10 @@ app.post('/register', async (req, res) => {
     } else {
       const hash = await bcrypt.hash(password, saltRounds);
       const verificationToken = uuidv4();
-        const insertSql = `
-        INSERT INTO users (name, email, password, verification_token) VALUES (?, ?, ?, ?)
-      `;
-      const insertValues = [name, email, hash, verificationToken];
+      const insertSql = `
+      INSERT INTO users (name, email, password, verification_token, ip_address) VALUES (?, ?, ?, ?, ?)
+    `;
+    const insertValues = [name, email, hash, verificationToken, clientIp];
       await promisify(connection.query).call(connection, insertSql, insertValues);
         console.log('New user registered!');
 
@@ -210,6 +212,8 @@ app.get('/verify/:verificationToken', async (req, res) => {
 
 // User login endpoint
 app.post('/login', loginRateLimiter, async (req, res) => {
+  // Obtain client's IP address
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const { email, password } = req.body;
   const sql = `
     SELECT * FROM users WHERE email = ?
@@ -219,7 +223,6 @@ app.post('/login', loginRateLimiter, async (req, res) => {
     const [rows, fields] = await connection.promise().query(sql, values);
     if (rows.length === 0) {
       // Store unsuccessful login attempt in the database
-      const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
       const loginAttemptSql = `
         INSERT INTO login_attempts (email, ip_address, attempt_time) VALUES (?, ?, NOW())
       `;
@@ -233,7 +236,6 @@ app.post('/login', loginRateLimiter, async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       // Store unsuccessful login attempt in the database
-      const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
       const loginAttemptSql = `
         INSERT INTO login_attempts (email, ip_address, attempt_time) VALUES (?, ?, NOW())
       `;
@@ -243,9 +245,6 @@ app.post('/login', loginRateLimiter, async (req, res) => {
       res.status(401).send('Invalid email or password');
       return;
     }
-
-    // Obtain client's IP address
-    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
     // Store the login session record in the database
     const loginRecordSql = `

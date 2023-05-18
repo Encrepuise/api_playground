@@ -17,12 +17,14 @@ connection.connect((err) => {
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255) NOT NULL,
       password VARCHAR(255) NOT NULL,
-      is_verified BOOLEAN NOT NULL DEFAULT false;
-      verification_token VARCHAR(255) NULL DEFAULT null;
+      ip_address VARCHAR(255) NOT NULL,
+      is_verified BOOLEAN NOT NULL DEFAULT false,
+      verification_token VARCHAR(255) NULL DEFAULT null,
       birth_date DATE,
       gender ENUM('male', 'female', 'other'),
       mobile_number VARCHAR(20),
       profile_picture VARCHAR(255),
+      can_create_company BOOLEAN NOT NULL DEFAULT false,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id)
     )
