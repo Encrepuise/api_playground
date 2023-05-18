@@ -9,11 +9,20 @@ const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const uuidValidate = require('uuid-validate');
 const smtpServer = require('smtp-server').SMTPServer;
+const rateLimit = require('express-rate-limit');
 
 
 app.use(bodyParser.json());
 app.use(cookieParser());
 const secret = process.env.JWT_SECRET || 'secret';
+
+
+// Rate Limit
+const loginRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minutes
+  max: 5, // maximum of 5 requests per windowMs
+  message: 'Too many login attempts from this IP, please try again later.',
+});
 
 
 // HTTPS
@@ -200,7 +209,7 @@ app.get('/verify/:verificationToken', async (req, res) => {
 
 
 // User login endpoint
-app.post('/login', async (req, res) => {
+app.post('/login', loginRateLimiter, async (req, res) => {
   const { email, password } = req.body;
   const sql = `
     SELECT * FROM users WHERE email = ?
@@ -209,15 +218,42 @@ app.post('/login', async (req, res) => {
   try {
     const [rows, fields] = await connection.promise().query(sql, values);
     if (rows.length === 0) {
+      // Store unsuccessful login attempt in the database
+      const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      const loginAttemptSql = `
+        INSERT INTO login_attempts (email, ip_address, attempt_time) VALUES (?, ?, NOW())
+      `;
+      const loginAttemptValues = [email, clientIp];
+      await connection.promise().query(loginAttemptSql, loginAttemptValues);
+
       res.status(401).send('Invalid email or password');
       return;
     }
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
+      // Store unsuccessful login attempt in the database
+      const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      const loginAttemptSql = `
+        INSERT INTO login_attempts (email, ip_address, attempt_time) VALUES (?, ?, NOW())
+      `;
+      const loginAttemptValues = [email, clientIp];
+      await connection.promise().query(loginAttemptSql, loginAttemptValues);
+
       res.status(401).send('Invalid email or password');
       return;
     }
+
+    // Obtain client's IP address
+    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+    // Store the login session record in the database
+    const loginRecordSql = `
+      INSERT INTO login_sessions (user_id, login_time, ip_address) VALUES (?, NOW(), ?)
+    `;
+    const loginRecordValues = [user.id, clientIp];
+    await connection.promise().query(loginRecordSql, loginRecordValues);
+
     // Create and sign JWT token
     const token = jwt.sign({ email: user.email }, secret, { expiresIn: '1h' });
     // Store JWT token in a HTTP-only cookie
@@ -307,6 +343,13 @@ app.post('/updateprofile', profilePictureUpload.single('profile_picture'), async
   }
 });
 
+
+// User logout endpoint
+app.post('/logout', (req, res) => {
+  // Clear the token cookie
+  res.clearCookie('token');
+  res.send('Logout successful!');
+});
 
 
 // Create Server

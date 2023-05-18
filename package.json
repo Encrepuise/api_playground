@@ -28,6 +28,7 @@
     "nodemailer": "6.9.2",
     "uuid": "^8.3.2",
     "smtp-server": "^3.11.0",
-    "uuid-validate": "^0.0.3"
+    "uuid-validate": "^0.0.3",
+    "express-rate-limit": "^6.7.0"
   }
 }
