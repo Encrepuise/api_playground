@@ -10,11 +10,16 @@ const { v4: uuidv4 } = require('uuid');
 const uuidValidate = require('uuid-validate');
 const smtpServer = require('smtp-server').SMTPServer;
 const rateLimit = require('express-rate-limit');
+const router = express.Router();
 
 
 app.use(bodyParser.json());
 app.use(cookieParser());
 const secret = process.env.JWT_SECRET || 'secret';
+
+
+// Routes
+// const loginRoute = require('./routes/login.js');
 
 
 // Rate Limit
@@ -210,6 +215,9 @@ app.get('/verify/:verificationToken', async (req, res) => {
 });
 
 
+// app.use('/login', loginRoute);
+
+
 // User login endpoint
 app.post('/login', loginRateLimiter, async (req, res) => {
   // Obtain client's IP address
@@ -361,9 +369,136 @@ const sslServer = https.createServer({
 sslServer.listen(3443, () => console.log('Secure server on port 3443')); */
 
 
+app.post('/createcompany', async (req, res) => {
+  const {name, description } = req.body;
+  
+  try {
+    if (!req.cookies || !req.cookies.token) {
+      res.status(401).send('No token found');
+      return;
+    }
+    if (!name || !description) {
+      res.status(401).send('No info found');
+      return;
+    }
+    const token = req.cookies.token;
+    const decoded = jwt.verify(token, secret);
+    const sql = `
+      SELECT * FROM users WHERE email = ?
+    `;
+    const values = [decoded.email];
+    const [rows, fields] = await connection.promise().query(sql, values);
+    if (rows.length === 0) {
+      res.status(401).send('Invalid token');
+      return;
+    }
+    const sql2 = `SELECT * FROM users WHERE email = ? AND can_create_company = 1`;
+    connection.query(sql2, [decoded.email], (err, results) => {
+      if (err) throw err;
+  
+      // Check if a user with the specified email and can_create_company = 1 exists
+      if (results.length === 0) {
+        return res.status(403).json({ message: 'User does not have permission to create a company' });
+      }
+  
+      // User has permission, continue with company creation
+      const userId = results[0].id;
+  
+      // Insert company into the companies table
+      const companySql = `INSERT INTO companies (name, description) VALUES (?, ?)`;
+      connection.query(companySql, [name, description], (err, result) => {
+        if (err) throw err;
+      
+        // Retrieve the ID of the inserted company
+        const companyId = result.insertId;
+      
+        // Insert user and company ID into the company_admins table
+        const adminsSql = `INSERT INTO company_admins (company_id, admin_id) VALUES (?, ?)`;
+        connection.query(adminsSql, [companyId, userId], (err) => {
+          if (err) throw err;
+      
+          res.status(200).json({ message: 'Company created successfully', companyId });
+        });
+      });
+    });
+  } catch (err) {
+    if (err instanceof jwt.JsonWebTokenError) {
+      res.status(401).send('Invalid token');
+    } else {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+});
+
+
+app.post('/putusertocompany', async (req, res) => {
+  const { company_id, useremail } = req.body;
+
+  try {
+    if (!req.cookies || !req.cookies.token) {
+      res.status(401).send('No token found');
+      return;
+    }
+
+    const token = req.cookies.token;
+    const decoded = jwt.verify(token, secret);
+    const userEmail = decoded.email;
+
+    const checkAdminSql = `SELECT * FROM company_admins WHERE company_id = ? AND admin_id = (SELECT id FROM users WHERE email = ?)`;
+    const checkAdminValues = [company_id, userEmail];
+
+    connection.query(checkAdminSql, checkAdminValues, (err, results) => {
+      if (err) throw err;
+
+      if (results.length === 0) {
+        return res.status(403).json({ message: 'User is not an admin of the company' });
+      }
+
+      const userIdSql = `SELECT id FROM users WHERE email = ?`;
+      const userIdValues = [useremail];
+
+      connection.query(userIdSql, userIdValues, (err, userResults) => {
+        if (err) throw err;
+
+        if (userResults.length === 0) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userId = userResults[0].id;
+        const checkMembershipSql = `SELECT * FROM user_companies WHERE company_id = ? AND user_id = ?`;
+        const checkMembershipValues = [company_id, userId];
+
+        connection.query(checkMembershipSql, checkMembershipValues, (err, membershipResults) => {
+          if (err) throw err;
+
+          if (membershipResults.length > 0) {
+            return res.status(400).json({ message: 'User is already a member of the company' });
+          }
+
+          const insertMembershipSql = `INSERT INTO user_companies (company_id, user_id) VALUES (?, ?)`;
+          const insertMembershipValues = [company_id, userId];
+
+          connection.query(insertMembershipSql, insertMembershipValues, (err) => {
+            if (err) throw err;
+
+            res.status(200).json({ message: 'User added to company successfully' });
+          });
+        });
+      });
+    });
+  } catch (err) {
+    if (err instanceof jwt.JsonWebTokenError) {
+      res.status(401).send('Invalid token');
+    } else {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+});
+
+
+
 const server = app.listen(3000, () => {
   console.log('Server listening on port 3000');
 }); 
-
-// Export the app and server objects
-module.exports = { app, server };
