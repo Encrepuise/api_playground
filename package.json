@@ -29,6 +29,7 @@
     "uuid": "^8.3.2",
     "smtp-server": "^3.11.0",
     "uuid-validate": "^0.0.3",
-    "express-rate-limit": "^6.7.0"
+    "express-rate-limit": "^6.7.0",
+    "dotenv": "^16.0.3"
   }
 }

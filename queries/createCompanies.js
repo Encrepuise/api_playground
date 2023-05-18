@@ -15,7 +15,8 @@ connection.connect((err) => {
   CREATE TABLE companies (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255),
-    description TEXT
+    description TEXT,
+    companypicture VARCHAR(255)
   )
   `;
 

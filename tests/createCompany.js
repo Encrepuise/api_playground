@@ -58,7 +58,9 @@ describe('Login', () => {
       chai.request('http://localhost:3000')
         .post('/createcompany')
         .set('Cookie', `token=${token}`)
-        .send({ name, description })
+        .field('name', name)
+        .field('description', description)
+        .attach('companypicture', 'profile.jpg')
         .end((err, res) => {
           if (err) throw err;
 
@@ -77,7 +79,9 @@ describe('Login', () => {
       chai.request('http://localhost:3000')
         .post('/createcompany')
         .set('Cookie', `token=${token}`)
-        .send({ name, description })
+        .field('name', name)
+        .field('description', description)
+        .attach('company_picture', 'profile.jpg')
         .end((err, res) => {
           if (err) throw err;
 
